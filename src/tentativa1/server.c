@@ -1,67 +1,47 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <signal.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <pthread.h>
 
-#define MAX_CLIENTS 10
 #define BUFFER_SIZE 2048
+#define MAX_CLIENTS 10
+#define MAX_NAME_LENGTH 32
 
-volatile sig_atomic_t flag = 0;
-int sockfd = 0;
-int client_sockets[MAX_CLIENTS];
-char client_names[MAX_CLIENTS][32];
-char client_rooms[MAX_CLIENTS][10];
-
-void handleExit(int sig)
+typedef struct
 {
-    flag = 1;
-}
+    char name[MAX_NAME_LENGTH];
+    int room;
+} ClientData;
 
-void *handleMsg(void *arg)
+void parseProtocolBuffer(char *protocol_buffer, char *userName, int *room)
 {
-    int clientfd = *((int *)arg);
-    char buffer[BUFFER_SIZE];
-
-    while (1)
-    {
-        memset(buffer, 0, sizeof(buffer));
-        int receive = recv(clientfd, buffer, BUFFER_SIZE, 0);
-        if (receive > 0)
-        {
-            printf("%s - Sala %s: %s\n", client_names[clientfd], client_rooms[clientfd], buffer);
-        }
-        else if (receive == 0)
-        {
-            printf("Client %s - Sala %s has left the chat\n", client_names[clientfd], client_rooms[clientfd]);
-            break;
-        }
-        else
-        {
-            // -1
-        }
-    }
-
-    close(clientfd);
-    client_sockets[clientfd] = 0;
-    strcpy(client_names[clientfd], "");
-    strcpy(client_rooms[clientfd], "");
-
-    return NULL;
+    sscanf(protocol_buffer, "%[^:]: %x", userName, room);
 }
 
 int main(int argc, char **argv)
 {
+    int sockfd = 0;
+    int clientSockfd = 0;
+    char protocol_buffer[BUFFER_SIZE];
+    ClientData clients[MAX_CLIENTS];
+    int numClients = 0;
+
     char *ip = argv[1];
     char *port = argv[2];
-    struct sockaddr_in serverAddr;
+
+    struct sockaddr_in serverAddr, clientAddr;
+    socklen_t clientAddrLen;
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0)
+    {
+        printf("Erro ao criar o socket\n");
+        return EXIT_FAILURE;
+    }
 
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_addr.s_addr = inet_addr(ip);
@@ -69,107 +49,66 @@ int main(int argc, char **argv)
 
     if (bind(sockfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0)
     {
-        perror("ERROR: bind");
+        printf("Erro ao fazer o bind\n");
         return EXIT_FAILURE;
     }
 
     if (listen(sockfd, MAX_CLIENTS) < 0)
     {
-        perror("ERROR: listen");
+        printf("Erro ao escutar a porta\n");
         return EXIT_FAILURE;
     }
 
-    printf("=== WELCOME TO THE CHATROOM ===\n");
-
-    fd_set read_fds;
-    int max_socket_fd = sockfd;
-    int i;
-    for (int i = 0; i < MAX_CLIENTS; i++)
-    {
-        client_sockets[i] = 0;
-        strcpy(client_names[i], "");
-        strcpy(client_rooms[i], "");
-    }
+    printf("Aguardando conexões...\n");
 
     while (1)
     {
-        FD_ZERO(&read_fds);
-        FD_SET(sockfd, &read_fds);
-        max_socket_fd = sockfd;
+        clientAddrLen = sizeof(clientAddr);
+        clientSockfd = accept(sockfd, (struct sockaddr *)&clientAddr, &clientAddrLen);
 
-        // Na primeira iteração do while esse loop não faz nada
-        for (i = 0; i < MAX_CLIENTS; i++)
+        if (clientSockfd < 0)
         {
-            int clientfd = client_sockets[i];
-            if (clientfd > 0)
-            {
-                FD_SET(clientfd, &read_fds);
-                if (clientfd > max_socket_fd)
-                {
-                    max_socket_fd = clientfd;
-                }
-            }
-        }
-
-        if (select(max_socket_fd + 1, &read_fds, NULL, NULL, NULL) < 0)
-        {
-            perror("ERROR: select");
+            printf("Erro ao aceitar a conexão\n");
             return EXIT_FAILURE;
         }
 
-        if (FD_ISSET(sockfd, &read_fds))
+        printf("Conexão estabelecida\n");
+
+        ssize_t bytesRead = recv(clientSockfd, protocol_buffer, BUFFER_SIZE - 1, 0);
+        if (bytesRead < 0)
         {
-            struct sockaddr_in clientAddr;
-            socklen_t client_addr_len = sizeof(clientAddr);
-            int clientfd = accept(sockfd, (struct sockaddr *)&clientAddr, &client_addr_len);
-
-            if (clientfd < 0)
-            {
-                perror("ERROR: accept");
-                return EXIT_FAILURE;
-            }
-
-            for (i = 0; i < MAX_CLIENTS; i++)
-            {
-                if (client_sockets[i] == 0)
-                {
-                    client_sockets[i] = clientfd;
-                    printf("New client connected: %s\n", inet_ntoa(clientAddr.sin_addr));
-                    break;
-                }
-            }
+            printf("Erro ao receber dados\n");
+            return EXIT_FAILURE;
         }
 
-        for (i = 0; i < MAX_CLIENTS; i++)
-        {
-            int clientfd = client_sockets[i];
-            if (FD_ISSET(clientfd, &read_fds))
-            {
-                pthread_t receive_msg_thread;
-                if (pthread_create(&receive_msg_thread, NULL, handleMsg, &clientfd) != 0)
-                {
-                    perror("ERROR: pthread");
-                    return EXIT_FAILURE;
-                }
-            }
-        }
+        protocol_buffer[bytesRead] = '\0';
+        parseProtocolBuffer(protocol_buffer, clients[numClients].name, &(clients[numClients].room));
 
-        if (flag)
+        printf("Nome: %s\n", clients[numClients].name);
+        printf("Sala: %d\n", clients[numClients].room);
+
+        numClients++;
+
+        if (numClients >= MAX_CLIENTS)
         {
-            printf("\nServer stopped\n");
+            printf("Número máximo de clientes atingido. Encerrando conexões novas.\n");
             break;
         }
-    }
 
-    for (i = 0; i < MAX_CLIENTS; i++)
-    {
-        if (client_sockets[i] != 0)
-        {
-            close(client_sockets[i]);
-        }
+        close(clientSockfd);
     }
 
     close(sockfd);
 
-    return EXIT_SUCCESS;
+    // Exemplo de como acessar os dados armazenados na matriz
+    printf("\nDados dos clientes:\n");
+    for (int i = 0; i < numClients; i++)
+    {
+        printf("Cliente %d:\n", i + 1);
+        printf("Nome: %s\n", clients[i].name);
+        printf("Sala: %d\n", clients[i].room);
+        printf("\n");
+    }
+
+    return 0;
 }
