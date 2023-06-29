@@ -1,173 +1,126 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <unistd.h>
-#include <pthread.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
-#define MAX_NAME_LENGTH 50
 #define MAX_CLIENTS 10
 #define BUFFER_SIZE 1024
 
 typedef struct
 {
-    char name[MAX_NAME_LENGTH];
-    int room;
-    int sockfd;
-} ClientData;
+    int clientSocket;
+    int roomNumber;
+} ClientInfo;
 
-void sendMessageToRoomClients(ClientData *client, ClientData *clients, int numClients, const char *message)
+void handleClientMessage(ClientInfo *clients, int numClients, int clientIndex, char *message)
 {
+    // Percorrer todos os clientes na mesma sala e enviar a mensagem
     for (int i = 0; i < numClients; i++)
     {
-        if (clients[i].room == client->room && clients[i].sockfd != client->sockfd)
+        if (clients[i].roomNumber == clients[clientIndex].roomNumber && i != clientIndex)
         {
-            send(clients[i].sockfd, message, strlen(message), 0);
+            if (send(clients[i].clientSocket, message, strlen(message), 0) < 0)
+            {
+                perror("Erro ao enviar mensagem para cliente");
+                exit(EXIT_FAILURE);
+            }
         }
     }
 }
 
-void *threadFunction1(void *arg)
+int main(int argc, char **argv)
 {
-    int sockfd = *(int *)arg;
+    if (argc < 2)
+    {
+        printf("Uso: %s <Porta do servidor>\n", argv[0]);
+        return 1;
+    }
+
+    int serverSocket, clientSocket;
+    struct sockaddr_in serverAddress, clientAddress;
+    char *serverPort = argv[2];
     char buffer[BUFFER_SIZE];
-    ClientData clients[MAX_CLIENTS];
+    ClientInfo clients[MAX_CLIENTS];
     int numClients = 0;
 
+    // Criar o socket do servidor
+    serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSocket == -1)
+    {
+        perror("Erro ao criar o socket do servidor");
+        exit(EXIT_FAILURE);
+    }
+
+    // Configurar o endereço do servidor
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_addr.s_addr = inet_addr(argv[1]);
+    serverAddress.sin_port = htons(atoi(serverPort));
+
+    // serverAddr.sin_port = htons(port);
+    // serverAddr.sin_addr.s_addr = inet_addr(ip);
+
+    // Associar o socket do servidor ao endereço e à porta
+    if (bind(serverSocket, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
+    {
+        perror("Erro ao associar o socket do servidor ao endereço e à porta");
+        exit(EXIT_FAILURE);
+    }
+
+    // Colocar o socket em modo de escuta
+    if (listen(serverSocket, 5) < 0)
+    {
+        perror("Erro ao colocar o socket em modo de escuta");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Servidor escutando na porta %s...\n", serverPort);
+
+    // Aceitar conexões de clientes
     while (1)
     {
-        // Receber nome do cliente
-        int bytesRead = recv(sockfd, buffer, BUFFER_SIZE - 1, 0);
-        if (bytesRead <= 0)
+        socklen_t addrlen = sizeof(clientAddress);
+        clientSocket = accept(serverSocket, (struct sockaddr *)&clientAddress, &addrlen);
+        if (clientSocket < 0)
         {
-            // Erro ou conexão fechada pelo cliente
-            break;
+            perror("Erro ao aceitar conexão de cliente");
+            exit(EXIT_FAILURE);
         }
-        buffer[bytesRead] = '\0';
 
-        // Adicionar cliente à lista
-        strcpy(clients[numClients].name, buffer);
-        clients[numClients].room = 1; // Definir sala fixa para exemplo
-        clients[numClients].sockfd = sockfd;
+        // Receber as informações do cliente
+        memset(buffer, 0, sizeof(buffer));
+        if (recv(clientSocket, buffer, sizeof(buffer), 0) < 0)
+        {
+            perror("Erro ao receber informações do cliente");
+            exit(EXIT_FAILURE);
+        }
+
+        // Extrair o nome de usuário e número da sala
+        char *userName = strtok(buffer, ":");
+        int roomNumber = atoi(strtok(NULL, ":"));
+
+        printf("Novo cliente conectado - Usuário: %s, Sala: %d\n", userName, roomNumber);
+
+        // Adicionar o cliente à lista de clientes
+        clients[numClients].clientSocket = clientSocket;
+        clients[numClients].roomNumber = roomNumber;
         numClients++;
 
-        // Enviar mensagem de entrada para os outros clientes
-        char message[BUFFER_SIZE];
-        snprintf(message, BUFFER_SIZE, "%s entrou na sala.\n", buffer);
-        sendMessageToRoomClients(&clients[numClients - 1], clients, numClients, message);
-    }
-
-    // Cliente desconectado, remover da lista
-    for (int i = 0; i < numClients; i++)
-    {
-        if (clients[i].sockfd == sockfd)
+        // Enviar mensagem de boas-vindas ao cliente
+        sprintf(buffer, "Bem-vindo, %s! Você está na sala %d\n", userName, roomNumber);
+        if (send(clientSocket, buffer, strlen(buffer), 0) < 0)
         {
-            // Enviar mensagem de saída para os outros clientes
-            char message[BUFFER_SIZE];
-            snprintf(message, BUFFER_SIZE, "%s saiu da sala.\n", clients[i].name);
-            sendMessageToRoomClients(&clients[i], clients, numClients, message);
-
-            // Remover cliente da lista
-            for (int j = i; j < numClients - 1; j++)
-            {
-                clients[j] = clients[j + 1];
-            }
-            numClients--;
-            break;
-        }
-    }
-
-    close(sockfd);
-    return NULL;
-}
-
-void *threadFunction2(void *arg)
-{
-    ClientData *client = (ClientData *)arg;
-    char buffer[BUFFER_SIZE];
-    ClientData *clients = (ClientData *)arg;                       // Adicionar declaração de clients
-    int numClients = *(int *)((char *)arg + sizeof(ClientData *)); // Adicionar declaração de numClients
-
-    while (1)
-    {
-        int bytesRead = recv(client->sockfd, buffer, BUFFER_SIZE - 1, 0);
-        if (bytesRead <= 0)
-        {
-            // Erro ou conexão fechada pelo cliente
-            break;
-        }
-        buffer[bytesRead] = '\0';
-
-        // Enviar mensagem para os outros clientes na sala
-        char message[BUFFER_SIZE];
-        snprintf(message, BUFFER_SIZE, "%s: %s", client->name, buffer);
-        sendMessageToRoomClients(client, clients, numClients, message);
-    }
-
-    close(client->sockfd);
-    return NULL;
-}
-
-int main(int argc, char *argv[])
-{
-    if (argc != 3)
-    {
-        printf("Uso: %s [IP] [PORTA]\n", argv[0]);
-        return EXIT_FAILURE;
-    }
-
-    const char *ip = argv[1];
-    int port = atoi(argv[2]);
-
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0)
-    {
-        perror("Erro ao criar socket");
-        return EXIT_FAILURE;
-    }
-
-    struct sockaddr_in serverAddr;
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(port);
-    serverAddr.sin_addr.s_addr = inet_addr(ip);
-
-    if (bind(sockfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0)
-    {
-        perror("Erro ao fazer bind");
-        return EXIT_FAILURE;
-    }
-
-    if (listen(sockfd, MAX_CLIENTS) < 0)
-    {
-        perror("Erro ao ouvir na porta");
-        return EXIT_FAILURE;
-    }
-
-    printf("Servidor iniciado. Aguardando conexões...\n");
-
-    while (1)
-    {
-        struct sockaddr_in clientAddr;
-        socklen_t clientAddrLen = sizeof(clientAddr);
-        int clientSockfd = accept(sockfd, (struct sockaddr *)&clientAddr, &clientAddrLen);
-        if (clientSockfd < 0)
-        {
-            perror("Erro ao aceitar conexão");
-            return EXIT_FAILURE;
+            perror("Erro ao enviar mensagem de boas-vindas ao cliente");
+            exit(EXIT_FAILURE);
         }
 
-        pthread_t thread;
-        if (pthread_create(&thread, NULL, threadFunction1, &clientSockfd) != 0)
-        {
-            perror("Erro ao criar thread");
-            return EXIT_FAILURE;
-        }
-
-        printf("Novo cliente conectado.\n");
+        // Criar uma nova thread para tratar as mensagens do cliente
+        // (opcional: você pode implementar isso usando pthreads ou outras bibliotecas de threads)
     }
 
-    close(sockfd);
-    return EXIT_SUCCESS;
+    // Fechar o socket do servidor
+    close(serverSocket);
+
+    return 0;
 }

@@ -1,101 +1,86 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <signal.h>
 #include <unistd.h>
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <pthread.h>
 
-#define BUFFER_SIZE 2048
-
-int intToHex(int num, char *hex)
-{
-    sprintf(hex, "%x", num);
-}
+#define BUFFER_SIZE 1024
 
 int main(int argc, char **argv)
 {
-    int sockfd = 0;
-    char protocol_buffer[BUFFER_SIZE];
-    char *ip = argv[1]; // Alteração: Armazenar o endereço IP em um array fixo
-    char *port = argv[2];
-    char userName[32]; // Alteração: Corrigir declaração do array userName
-    int room;
-
-    printf("Digite seu nome:\n");
-    fgets(userName, sizeof(userName), stdin);
-
-    // printf("Digite o endereço IP do servidor:\n"); // Alteração: Solicitar o endereço IP
-    // fgets(ip, sizeof(ip), stdin);
-
-    printf("Digite a sala escolhida:\n");
-    scanf("%d", &room);
-
-    char hexRoom[10];
-    intToHex(room, hexRoom);
-
-    sprintf(protocol_buffer, "%s: %s\n", userName, hexRoom);
-
-    struct sockaddr_in serverAddr;
-
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = inet_addr(ip);
-    serverAddr.sin_port = htons(atoi(port));
-
-    if (connect(sockfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0)
+    if (argc < 2)
     {
-        printf("Erro na conexão\n");
-        return EXIT_FAILURE;
+        printf("Uso: %s <IP do servidor> <Porta do servidor> <Nome do usuário> <Número da sala>\n", argv[0]);
+        return 1;
     }
 
-    send(sockfd, protocol_buffer, strlen(protocol_buffer), 0);
+    int clientSocket;
+    struct sockaddr_in serverAddress;
+    char *serverIP = argv[1];
+    char *serverPort = argv[2];
 
-    printf("Conexão estabelecida. Agora você pode enviar mensagens para o servidor.\n");
+    char userName[30];
+    int roomNumber;
 
+    char buffer[BUFFER_SIZE];
+
+    printf("Digite seu Nome:\n");
+    fgets(userName, 30, stdin);
+    printf("Digite o número da Sala:\n");
+    scanf("%d", &roomNumber);
+
+    // Criar o socket do cliente
+    clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (clientSocket == -1)
+    {
+        perror("Erro ao criar o socket do cliente");
+        exit(EXIT_FAILURE);
+    }
+
+    // Configurar o endereço do servidor
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_addr.s_addr = inet_addr(argv[1]);
+    serverAddress.sin_port = htons(atoi(serverPort));
+
+    if (inet_pton(AF_INET, serverIP, &(serverAddress.sin_addr)) <= 0)
+    {
+        perror("Erro ao configurar o endereço do servidor");
+        exit(EXIT_FAILURE);
+    }
+
+    // Conectar ao servidor
+    if (connect(clientSocket, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
+    {
+        perror("Erro ao conectar ao servidor");
+        exit(EXIT_FAILURE);
+    }
+
+    // Enviar o nome de usuário e número da sala para o servidor
+    sprintf(buffer, "%s:%d", userName, roomNumber);
+    if (send(clientSocket, buffer, strlen(buffer), 0) < 0)
+    {
+        perror("Erro ao enviar informações para o servidor");
+        exit(EXIT_FAILURE);
+    }
+
+    // Realizar o processamento do cliente
     while (1)
     {
-        char message[BUFFER_SIZE];
-        fgets(message, sizeof(message), stdin);
+        // Ler a entrada do usuário
+        printf("Digite uma mensagem: ");
+        fgets(buffer, BUFFER_SIZE, stdin);
 
-        // Remover o caractere '\n' da string de entrada
-        size_t len = strlen(message);
-        if (len > 0 && message[len - 1] == '\n')
+        // Enviar a mensagem para o servidor
+        if (send(clientSocket, buffer, strlen(buffer), 0) < 0)
         {
-            message[len - 1] = '\0';
-        }
-
-        send(sockfd, message, strlen(message), 0);
-
-        ssize_t bytesReceived = recv(sockfd, protocol_buffer, BUFFER_SIZE - 1, 0);
-
-        if (bytesReceived < 0)
-        {
-            printf("Erro ao receber dados do servidor\n");
-            return EXIT_FAILURE;
-        }
-        else if (bytesReceived == 0)
-        {
-            printf("Conexão encerrada pelo servidor\n");
-            break;
-        }
-        else
-        {
-            protocol_buffer[bytesReceived] = '\0';
-            printf("[Servidor] Mensagem recebida: %s\n", protocol_buffer);
-        }
-
-        // Se a mensagem for "exit", encerrar o loop
-        if (strcmp(message, "exit") == 0)
-        {
-            break;
+            perror("Erro ao enviar a mensagem para o servidor");
+            exit(EXIT_FAILURE);
         }
     }
 
-    close(sockfd);
+    // Fechar o socket do cliente
+    close(clientSocket);
 
     return 0;
 }
