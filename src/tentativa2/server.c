@@ -6,7 +6,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 
-#define MAX_CLIENTS 100
+#define MAX_CLIENTS 500
 #define BUFFER_SIZE 1024
 
 typedef struct
