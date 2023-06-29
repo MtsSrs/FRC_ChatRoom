@@ -13,6 +13,7 @@ typedef struct
 {
     int clientSocket;
     int roomNumber;
+    char *userName;
 } ClientInfo;
 
 typedef struct
@@ -30,11 +31,14 @@ typedef struct
 
 void handleClientMessage(Room *rooms, int roomNumber, int clientIndex, char *message)
 {
+    char userMessage[BUFFER_SIZE];
+    sprintf(userMessage, "%s: %s", rooms[roomNumber].clients[clientIndex].userName, message);
+
     for (int i = 0; i < rooms[roomNumber].numClients; i++)
     {
         int clientSocket = rooms[roomNumber].clients[i].clientSocket;
 
-        if (send(clientSocket, message, strlen(message), 0) < 0)
+        if (send(clientSocket, userMessage, strlen(userMessage), 0) < 0)
         {
             perror("Erro ao enviar mensagem para cliente");
             exit(EXIT_FAILURE);
@@ -135,20 +139,24 @@ int main(int argc, char **argv)
         int clientIndex = rooms[roomNumber].numClients;
         rooms[roomNumber].clients[clientIndex].clientSocket = clientSocket;
         rooms[roomNumber].clients[clientIndex].roomNumber = roomNumber;
+        rooms[roomNumber].clients[clientIndex].userName = strdup(userName); // Alocar e copiar o nome do usuário
+
         rooms[roomNumber].numClients++;
 
-        sprintf(buffer, "Bem-vindo, %s! Você está na sala %d\n", userName, roomNumber);
-        if (send(clientSocket, buffer, strlen(buffer), 0) < 0)
+        char welcomeMessage[BUFFER_SIZE];
+        sprintf(welcomeMessage, "Bem-vindo, %s! Você está na sala %d\n", userName, roomNumber);
+        if (send(clientSocket, welcomeMessage, strlen(welcomeMessage), 0) < 0)
         {
             perror("Erro ao enviar mensagem de boas-vindas ao cliente");
             exit(EXIT_FAILURE);
         }
 
-        sprintf(buffer, "Usuário %s entrou na sala\n", userName);
-        handleClientMessage(rooms, roomNumber, clientIndex, buffer);
+        char joinMessage[BUFFER_SIZE];
+        sprintf(joinMessage, "Usuário %s entrou na sala\n", userName);
+        handleClientMessage(rooms, roomNumber, clientIndex, joinMessage);
 
         pthread_t tid;
-        ThreadData *data = (ThreadData *)malloc(sizeof(ThreadData));
+        ThreadData *data = malloc(sizeof(ThreadData));
         data->rooms = rooms;
         data->roomNumber = roomNumber;
         data->clientIndex = clientIndex;

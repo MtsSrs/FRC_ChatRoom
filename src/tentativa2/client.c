@@ -27,7 +27,13 @@ void *receiveThread(void *arg)
         if (bytesRead <= 0)
             break;
 
-        printf("Mensagem recebida do servidor: %s\n", buffer);
+        printf("> %s\n", buffer);
+
+        fflush(stdout);  
+
+        if (strcmp(buffer, "Bem-vindo, ! Você está na sala \n") == 0) {
+            printf("A mensagem de boas-vindas está vazia.\n");
+        }
     }
 
     return NULL;
@@ -53,8 +59,18 @@ int main(int argc, char **argv)
 
     printf("Digite seu Nome:\n");
     fgets(userName, 30, stdin);
+
+    // Remover o caractere de quebra de linha
+    size_t userNameLength = strlen(userName);
+    if (userName[userNameLength - 1] == '\n') {
+        userName[userNameLength - 1] = '\0';
+    }
+
     printf("Digite o número da Sala:\n");
     scanf("%d", &roomNumber);
+    while (getchar() != '\n') {
+        // Consumir caracteres pendentes no buffer do stdin
+    }
 
     clientSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (clientSocket == -1)
@@ -86,7 +102,7 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    ReceiveThreadData threadData;
+     ReceiveThreadData threadData;
     threadData.socket = clientSocket;
     pthread_t receiveThreadID;
     if (pthread_create(&receiveThreadID, NULL, receiveThread, (void *)&threadData) != 0)
@@ -97,19 +113,21 @@ int main(int argc, char **argv)
 
     while (1)
     {
-        printf("Digite uma mensagem: \n");
+        fflush(stdout);  // Forçar a exibição imediata da mensagem
+
         fgets(buffer, BUFFER_SIZE, stdin);
 
-        size_t messageLength = strlen(buffer);
-        if (buffer[messageLength - 1] == '\n')
-            buffer[messageLength - 1] = '\0';
-
+    size_t messageLength = strlen(buffer);
+    if (messageLength > 1)  // Verificar se a mensagem não está vazia
+    {
+        buffer[messageLength - 1] = '\0';  // Remover o caractere de nova linha
         if (send(clientSocket, buffer, strlen(buffer), 0) < 0)
         {
             perror("Erro ao enviar a mensagem para o servidor\n");
             exit(EXIT_FAILURE);
         }
     }
+}
 
     close(clientSocket);
 
