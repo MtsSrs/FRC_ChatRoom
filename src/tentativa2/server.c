@@ -82,21 +82,42 @@ void *clientThread(void *arg)
 
         if (bytesRead <= 0)
         {
-            perror("Erro ao receber mensagem do cliente");
-            exit(EXIT_FAILURE);
+            printf("Cliente desconectado da sala %d - Usuário: %s\n", roomNumber, rooms[roomNumber].clients[clientIndex].userName);
+            break;
         }
-        else if (strcmp(buffer, "/list") == 0)
+
+        if (strcmp(buffer, "/list") == 0)
+        {
             showUsers(rooms, roomNumber, clientIndex);
+        }
+        else if (strcmp(buffer, "/sair") == 0)
+        {
+            printf("Cliente saiu da sala %d - Usuário: %s\n", roomNumber, rooms[roomNumber].clients[clientIndex].userName);
+            break;
+        }
         else
+        {
             handleClientMessage(rooms, roomNumber, clientIndex, buffer);
+        }
     }
+
+    // Remover cliente da sala
+    for (int i = clientIndex; i < rooms[roomNumber].numClients - 1; i++)
+    {
+        rooms[roomNumber].clients[i] = rooms[roomNumber].clients[i + 1];
+    }
+    rooms[roomNumber].numClients--;
+
+    close(clientSocket);
+    free(rooms[roomNumber].clients[clientIndex].userName);
+    free(data);
 
     return NULL;
 }
 
 int main(int argc, char **argv)
 {
-    if (argc < 2)
+    if (argc < 3)
     {
         printf("Uso: %s <Endereço IP> <Porta do servidor>\n", argv[0]);
         return 1;
