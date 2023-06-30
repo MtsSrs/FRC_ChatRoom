@@ -78,8 +78,8 @@ int main(int argc, char **argv)
 
     while (1)
     {
-        printf("Digite o número da sala (0-9) ou digite /exit para sair:\n");
-        char roomInput[10];
+        printf("Digite o número da sala (1-10):\n");
+        char roomInput[11];
         fgets(roomInput, sizeof(roomInput), stdin);
 
         if (strcmp(roomInput, "/exit\n") == 0)
@@ -91,7 +91,7 @@ int main(int argc, char **argv)
 
         roomNumber = atoi(roomInput);
 
-        if (roomNumber < 0 || roomNumber > 9)
+        if (roomNumber < 1 || roomNumber > 10)
         {
             printf("Número de sala inválido.\n");
         }
