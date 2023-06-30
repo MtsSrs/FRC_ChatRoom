@@ -2,6 +2,8 @@
 ChatRoom é um projeto em C que implementa uma aplicação de chat baseada em cliente e servidor utilizando a arquitetura TCP/IP e sockets de rede. 
 
 ## Rodar projeto
+Para que você consigar executar os comandos de inicialização, você precisa estar dentro da pasta main ("FRC_ChatRoom/src/main")
+
 1 - Inicialmente você deve começar o servidor com:
 ```
 $make server
