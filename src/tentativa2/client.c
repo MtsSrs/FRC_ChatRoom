@@ -28,7 +28,14 @@ void *receiveThread(void *arg)
         if (bytesRead <= 0)
             break;
 
-        printf("> %s\n", buffer);
+        if (strcmp(buffer, "/list") == 0)
+        {
+            printf("%s", buffer);
+        }
+        else
+        {
+            printf("> %s\n", buffer);
+        }
 
         fflush(stdout);
 
