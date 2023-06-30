@@ -27,11 +27,15 @@ void *receiveThread(void *arg)
         if (bytesRead <= 0)
             break;
 
-        printf("> %s\n", buffer);
+        if (strcmp(buffer, "/list") == 0)
+            printf("%s", buffer);
+        else
+            printf("> %s\n", buffer);
 
-        fflush(stdout);  
+        fflush(stdout);
 
-        if (strcmp(buffer, "Bem-vindo, ! Você está na sala \n") == 0) {
+        if (strcmp(buffer, "Bem-vindo, ! Você está na sala \n") == 0)
+        {
             printf("A mensagem de boas-vindas está vazia.\n");
         }
     }
@@ -62,13 +66,15 @@ int main(int argc, char **argv)
 
     // Remover o caractere de quebra de linha
     size_t userNameLength = strlen(userName);
-    if (userName[userNameLength - 1] == '\n') {
+    if (userName[userNameLength - 1] == '\n')
+    {
         userName[userNameLength - 1] = '\0';
     }
 
     printf("Digite o número da Sala:\n");
     scanf("%d", &roomNumber);
-    while (getchar() != '\n') {
+    while (getchar() != '\n')
+    {
         // Consumir caracteres pendentes no buffer do stdin
     }
 
@@ -102,7 +108,7 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-     ReceiveThreadData threadData;
+    ReceiveThreadData threadData;
     threadData.socket = clientSocket;
     pthread_t receiveThreadID;
     if (pthread_create(&receiveThreadID, NULL, receiveThread, (void *)&threadData) != 0)
@@ -113,21 +119,21 @@ int main(int argc, char **argv)
 
     while (1)
     {
-        fflush(stdout);  // Forçar a exibição imediata da mensagem
+        fflush(stdout); // Forçar a exibição imediata da mensagem
 
         fgets(buffer, BUFFER_SIZE, stdin);
 
-    size_t messageLength = strlen(buffer);
-    if (messageLength > 1)  // Verificar se a mensagem não está vazia
-    {
-        buffer[messageLength - 1] = '\0';  // Remover o caractere de nova linha
-        if (send(clientSocket, buffer, strlen(buffer), 0) < 0)
+        size_t messageLength = strlen(buffer);
+        if (messageLength > 1) // Verificar se a mensagem não está vazia
         {
-            perror("Erro ao enviar a mensagem para o servidor\n");
-            exit(EXIT_FAILURE);
+            buffer[messageLength - 1] = '\0'; // Remover o caractere de nova linha
+            if (send(clientSocket, buffer, strlen(buffer), 0) < 0)
+            {
+                perror("Erro ao enviar a mensagem para o servidor\n");
+                exit(EXIT_FAILURE);
+            }
         }
     }
-}
 
     close(clientSocket);
 

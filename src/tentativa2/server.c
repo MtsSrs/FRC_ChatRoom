@@ -46,6 +46,25 @@ void handleClientMessage(Room *rooms, int roomNumber, int clientIndex, char *mes
     }
 }
 
+void showUsers(Room *rooms, int roomNumber, int clientIndex)
+{
+    int clientSocket = rooms[roomNumber].clients[clientIndex].clientSocket;
+    for (int i = 0; i < rooms[roomNumber].numClients; i++)
+    {
+        char userName[30];
+        strcpy(userName, rooms[roomNumber].clients[i].userName);
+
+        int userNameLength = strlen(userName) + 1;
+        userName[userNameLength - 1] = '\n';
+
+        if (send(clientSocket, userName, userNameLength, 0) < 0)
+        {
+            perror("Erro ao listar usuários para o cliente");
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
 void *clientThread(void *arg)
 {
     ThreadData *data = (ThreadData *)arg;
@@ -60,13 +79,16 @@ void *clientThread(void *arg)
     {
         memset(buffer, 0, sizeof(buffer));
         ssize_t bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
+
         if (bytesRead <= 0)
         {
             perror("Erro ao receber mensagem do cliente");
             exit(EXIT_FAILURE);
         }
-
-        handleClientMessage(rooms, roomNumber, clientIndex, buffer);
+        else if (strcmp(buffer, "/list") == 0)
+            showUsers(rooms, roomNumber, clientIndex);
+        else
+            handleClientMessage(rooms, roomNumber, clientIndex, buffer);
     }
 
     return NULL;
