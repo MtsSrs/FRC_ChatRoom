@@ -7,6 +7,7 @@
 #include <pthread.h>
 
 #define BUFFER_SIZE 1024
+#define MAX_ROOMS 10
 
 typedef struct
 {
@@ -29,20 +30,14 @@ void *receiveThread(void *arg)
             break;
 
         if (strcmp(buffer, "/list") == 0)
-        {
             printf("%s", buffer);
-        }
         else
-        {
             printf("> %s\n", buffer);
-        }
 
         fflush(stdout);
 
         if (strcmp(buffer, "Bem-vindo, ! Você está na sala \n") == 0)
-        {
             printf("A mensagem de boas-vindas está vazia.\n");
-        }
     }
 
     return NULL;
@@ -92,9 +87,7 @@ int main(int argc, char **argv)
         roomNumber = atoi(roomInput);
 
         if (roomNumber < 1 || roomNumber > 10)
-        {
             printf("Número de sala inválido.\n");
-        }
         else
         {
             clientSocket = socket(AF_INET, SOCK_STREAM, 0);

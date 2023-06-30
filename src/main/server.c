@@ -6,8 +6,9 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 
-#define MAX_CLIENTS 500
 #define BUFFER_SIZE 1024
+#define MAX_CLIENTS 500
+#define MAX_ROOMS 10
 
 typedef struct
 {
@@ -85,27 +86,21 @@ void *clientThread(void *arg)
             printf("Cliente desconectado da sala %d - Usuário: %s\n", roomNumber, rooms[roomNumber].clients[clientIndex].userName);
             break;
         }
-
-        if (strcmp(buffer, "/list") == 0)
-        {
-            showUsers(rooms, roomNumber, clientIndex);
-        }
         else if (strcmp(buffer, "/exit") == 0)
         {
             printf("Cliente saiu da sala %d - Usuário: %s\n", roomNumber, rooms[roomNumber].clients[clientIndex].userName);
             break;
         }
+        else if (strcmp(buffer, "/list") == 0)
+            showUsers(rooms, roomNumber, clientIndex);
         else
-        {
             handleClientMessage(rooms, roomNumber, clientIndex, buffer);
-        }
     }
 
     // Remover cliente da sala
     for (int i = clientIndex; i < rooms[roomNumber].numClients - 1; i++)
-    {
         rooms[roomNumber].clients[i] = rooms[roomNumber].clients[i + 1];
-    }
+
     rooms[roomNumber].numClients--;
 
     close(clientSocket);
@@ -128,7 +123,7 @@ int main(int argc, char **argv)
     char *serverIP = argv[1];
     char *serverPort = argv[2];
     char buffer[BUFFER_SIZE];
-    Room rooms[MAX_CLIENTS];
+    Room rooms[MAX_ROOMS];
     int numRooms = 0;
 
     serverSocket = socket(AF_INET, SOCK_STREAM, 0);
