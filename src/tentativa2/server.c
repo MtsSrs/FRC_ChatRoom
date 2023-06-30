@@ -62,12 +62,28 @@ void *clientThread(void *arg)
         ssize_t bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
         if (bytesRead <= 0)
         {
-            perror("Erro ao receber mensagem do cliente");
-            exit(EXIT_FAILURE);
+            printf("Cliente desconectado da sala %d - Usuário: %s\n", roomNumber, rooms[roomNumber].clients[clientIndex].userName);
+            break;
         }
 
         handleClientMessage(rooms, roomNumber, clientIndex, buffer);
+
+        if (strcmp(buffer, "/sair") == 0)
+        {
+            printf("Cliente saiu da sala %d - Usuário: %s\n", roomNumber, rooms[roomNumber].clients[clientIndex].userName);
+            break;
+        }
+        }
+
+    // Remover cliente da sala
+    for (int i = clientIndex; i < rooms[roomNumber].numClients - 1; i++)
+    {
+        rooms[roomNumber].clients[i] = rooms[roomNumber].clients[i + 1];
     }
+    rooms[roomNumber].numClients--;
+
+    close(clientSocket);
+    free(rooms[roomNumber].clients[clientIndex].userName);
 
     return NULL;
 }

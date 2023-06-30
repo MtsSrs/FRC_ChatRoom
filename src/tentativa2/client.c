@@ -11,6 +11,7 @@
 typedef struct
 {
     int socket;
+    char userName[30];
 } ReceiveThreadData;
 
 void *receiveThread(void *arg)
@@ -29,9 +30,10 @@ void *receiveThread(void *arg)
 
         printf("> %s\n", buffer);
 
-        fflush(stdout);  
+        fflush(stdout);
 
-        if (strcmp(buffer, "Bem-vindo, ! Você está na sala \n") == 0) {
+        if (strcmp(buffer, "Bem-vindo, ! Você está na sala \n") == 0)
+        {
             printf("A mensagem de boas-vindas está vazia.\n");
         }
     }
@@ -41,9 +43,9 @@ void *receiveThread(void *arg)
 
 int main(int argc, char **argv)
 {
-    if (argc < 2)
+    if (argc < 3)
     {
-        printf("Uso: %s <IP do servidor> <Porta do servidor> <Nome do usuário> <Número da sala>\n", argv[0]);
+        printf("Uso: %s <IP do servidor> <Porta do servidor>\n", argv[0]);
         return 1;
     }
 
@@ -53,83 +55,114 @@ int main(int argc, char **argv)
     char *serverPort = argv[2];
 
     char userName[30];
-    int roomNumber;
+    int roomNumber = -1;
 
     char buffer[BUFFER_SIZE];
 
     printf("Digite seu Nome:\n");
-    fgets(userName, 30, stdin);
+    fgets(userName, sizeof(userName), stdin);
 
     // Remover o caractere de quebra de linha
     size_t userNameLength = strlen(userName);
-    if (userName[userNameLength - 1] == '\n') {
+    if (userName[userNameLength - 1] == '\n')
+    {
         userName[userNameLength - 1] = '\0';
-    }
-
-    printf("Digite o número da Sala:\n");
-    scanf("%d", &roomNumber);
-    while (getchar() != '\n') {
-        // Consumir caracteres pendentes no buffer do stdin
-    }
-
-    clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (clientSocket == -1)
-    {
-        perror("Erro ao criar o socket do cliente\n");
-        exit(EXIT_FAILURE);
-    }
-
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_addr.s_addr = inet_addr(argv[1]);
-    serverAddress.sin_port = htons(atoi(serverPort));
-
-    if (inet_pton(AF_INET, serverIP, &(serverAddress.sin_addr)) <= 0)
-    {
-        perror("Erro ao configurar o endereço do servidor\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (connect(clientSocket, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
-    {
-        perror("Erro ao conectar ao servidor\n");
-        exit(EXIT_FAILURE);
-    }
-
-    sprintf(buffer, "%s:%d", userName, roomNumber);
-    if (send(clientSocket, buffer, strlen(buffer), 0) < 0)
-    {
-        perror("Erro ao enviar informações para o servidor\n");
-        exit(EXIT_FAILURE);
-    }
-
-     ReceiveThreadData threadData;
-    threadData.socket = clientSocket;
-    pthread_t receiveThreadID;
-    if (pthread_create(&receiveThreadID, NULL, receiveThread, (void *)&threadData) != 0)
-    {
-        perror("Erro ao criar a thread de recebimento\n");
-        exit(EXIT_FAILURE);
     }
 
     while (1)
     {
-        fflush(stdout);  // Forçar a exibição imediata da mensagem
+        printf("Digite o número da sala (0-9) ou digite /sair para sair:\n");
+        char roomInput[10];
+        fgets(roomInput, sizeof(roomInput), stdin);
 
-        fgets(buffer, BUFFER_SIZE, stdin);
-
-    size_t messageLength = strlen(buffer);
-    if (messageLength > 1)  // Verificar se a mensagem não está vazia
-    {
-        buffer[messageLength - 1] = '\0';  // Remover o caractere de nova linha
-        if (send(clientSocket, buffer, strlen(buffer), 0) < 0)
+        if (strcmp(roomInput, "/sair\n") == 0)
         {
-            perror("Erro ao enviar a mensagem para o servidor\n");
-            exit(EXIT_FAILURE);
+            roomNumber = -1;
+            printf("Você saiu da sala.\n");
+            break;
+        }
+
+        roomNumber = atoi(roomInput);
+
+        if (roomNumber < 0 || roomNumber > 9)
+        {
+            printf("Número de sala inválido.\n");
+        }
+        else
+        {
+            clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+            if (clientSocket == -1)
+            {
+                perror("Erro ao criar o socket do cliente\n");
+                exit(EXIT_FAILURE);
+            }
+
+            serverAddress.sin_family = AF_INET;
+            serverAddress.sin_addr.s_addr = inet_addr(argv[1]);
+            serverAddress.sin_port = htons(atoi(serverPort));
+
+            if (inet_pton(AF_INET, serverIP, &(serverAddress.sin_addr)) <= 0)
+            {
+                perror("Erro ao configurar o endereço do servidor\n");
+                exit(EXIT_FAILURE);
+            }
+
+            if (connect(clientSocket, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
+            {
+                perror("Erro ao conectar ao servidor\n");
+                exit(EXIT_FAILURE);
+            }
+
+            sprintf(buffer, "%s:%d", userName, roomNumber);
+            if (send(clientSocket, buffer, strlen(buffer), 0) < 0)
+            {
+                perror("Erro ao enviar informações para o servidor\n");
+                exit(EXIT_FAILURE);
+            }
+
+            ReceiveThreadData threadData;
+            threadData.socket = clientSocket;
+            strcpy(threadData.userName, userName);
+
+            pthread_t receiveThreadID;
+            if (pthread_create(&receiveThreadID, NULL, receiveThread, (void *)&threadData) != 0)
+            {
+                perror("Erro ao criar a thread de recebimento\n");
+                exit(EXIT_FAILURE);
+            }
+
+            while (1)
+            {
+                fgets(buffer, BUFFER_SIZE, stdin);
+
+                size_t messageLength = strlen(buffer);
+                if (messageLength > 1)
+                {
+                    buffer[messageLength - 1] = '\0';
+
+                    if (strcmp(buffer, "/sair") == 0)
+                    {
+                        roomNumber = -1;
+                        printf("Você saiu da sala.\n");
+                        break;
+                    }
+                    else
+                    {
+                        if (send(clientSocket, buffer, strlen(buffer), 0) < 0)
+                        {
+                            perror("Erro ao enviar a mensagem para o servidor\n");
+                            exit(EXIT_FAILURE);
+                        }
+                    }
+                }
+            }
+
+            close(clientSocket);
+
+            pthread_cancel(receiveThreadID);
+            pthread_join(receiveThreadID, NULL);
         }
     }
-}
-
-    close(clientSocket);
 
     return 0;
 }
