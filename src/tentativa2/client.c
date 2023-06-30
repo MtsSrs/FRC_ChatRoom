@@ -78,11 +78,11 @@ int main(int argc, char **argv)
 
     while (1)
     {
-        printf("Digite o número da sala (0-9) ou digite /sair para sair:\n");
+        printf("Digite o número da sala (0-9) ou digite /exit para sair:\n");
         char roomInput[10];
         fgets(roomInput, sizeof(roomInput), stdin);
 
-        if (strcmp(roomInput, "/sair\n") == 0)
+        if (strcmp(roomInput, "/exit\n") == 0)
         {
             roomNumber = -1;
             printf("Você saiu da sala.\n");
@@ -147,7 +147,7 @@ int main(int argc, char **argv)
                 {
                     buffer[messageLength - 1] = '\0';
 
-                    if (strcmp(buffer, "/sair") == 0)
+                    if (strcmp(buffer, "/exit") == 0)
                     {
                         roomNumber = -1;
                         printf("Você saiu da sala.\n");

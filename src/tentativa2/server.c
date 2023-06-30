@@ -90,7 +90,7 @@ void *clientThread(void *arg)
         {
             showUsers(rooms, roomNumber, clientIndex);
         }
-        else if (strcmp(buffer, "/sair") == 0)
+        else if (strcmp(buffer, "/exit") == 0)
         {
             printf("Cliente saiu da sala %d - Usuário: %s\n", roomNumber, rooms[roomNumber].clients[clientIndex].userName);
             break;
