@@ -35,9 +35,7 @@ void *receiveThread(void *arg)
         fflush(stdout);
 
         if (strcmp(buffer, "Bem-vindo, ! Você está na sala \n") == 0)
-        {
             printf("A mensagem de boas-vindas está vazia.\n");
-        }
     }
 
     return NULL;
