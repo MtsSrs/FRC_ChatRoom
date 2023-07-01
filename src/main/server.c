@@ -10,6 +10,7 @@
 #define MAX_CLIENTS 500
 #define MAX_ROOMS 10
 
+// estrutura para armazenar dados dos clientes
 typedef struct
 {
     int clientSocket;
@@ -17,12 +18,14 @@ typedef struct
     char *userName;
 } ClientInfo;
 
+// estrutura para armazenar dados das salas
 typedef struct
 {
     int numClients;
     ClientInfo clients[MAX_CLIENTS];
 } Room;
 
+// estrutura para armazenar os dados necessarios para a thread
 typedef struct
 {
     Room *rooms;
@@ -30,6 +33,7 @@ typedef struct
     int clientIndex;
 } ThreadData;
 
+// funcao que lida com a conexao do cliente
 void handleClientMessage(Room *rooms, int roomNumber, int clientIndex, char *message)
 {
     char userMessage[BUFFER_SIZE];
@@ -47,6 +51,7 @@ void handleClientMessage(Room *rooms, int roomNumber, int clientIndex, char *mes
     }
 }
 
+// funcao que lida com o comando /list para mostrar a lista de usuarios presentes em uma sala
 void showUsers(Room *rooms, int roomNumber, int clientIndex)
 {
     int clientSocket = rooms[roomNumber].clients[clientIndex].clientSocket;
@@ -66,6 +71,7 @@ void showUsers(Room *rooms, int roomNumber, int clientIndex)
     }
 }
 
+// thread que lida com os dados recebidos do cliente
 void *clientThread(void *arg)
 {
     ThreadData *data = (ThreadData *)arg;

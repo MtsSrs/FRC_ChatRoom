@@ -9,18 +9,21 @@
 #define BUFFER_SIZE 1024
 #define MAX_ROOMS 10
 
+// estrutura para armazenar dados do cliente
 typedef struct
 {
     int socket;
     char userName[30];
 } ReceiveThreadData;
 
+// thread que lida com a mensagem enviada pelo servidor e imprime na tela do cliente
 void *receiveThread(void *arg)
 {
     ReceiveThreadData *threadData = (ReceiveThreadData *)arg;
     int clientSocket = threadData->socket;
     char buffer[BUFFER_SIZE];
 
+    // lógica para manter o codigo lendo as mensagens do servidor
     while (1)
     {
         memset(buffer, 0, sizeof(buffer));
@@ -29,10 +32,7 @@ void *receiveThread(void *arg)
         if (bytesRead <= 0)
             break;
 
-        if (strcmp(buffer, "/list") == 0)
-            printf("%s", buffer);
-        else
-            printf("> %s\n", buffer);
+        printf("> %s\n", buffer);
 
         fflush(stdout);
 
@@ -71,6 +71,7 @@ int main(int argc, char **argv)
         userName[userNameLength - 1] = '\0';
     }
 
+    // lógica para manter o codigo lendo as mensagens do usuario e enviar ao servidor
     while (1)
     {
         printf("Digite o número da sala (1-10):\n");
@@ -120,10 +121,12 @@ int main(int argc, char **argv)
                 exit(EXIT_FAILURE);
             }
 
+            // instancia a estrutura para passar os dados do cliente para a thread
             ReceiveThreadData threadData;
             threadData.socket = clientSocket;
             strcpy(threadData.userName, userName);
 
+            // instancia a thread
             pthread_t receiveThreadID;
             if (pthread_create(&receiveThreadID, NULL, receiveThread, (void *)&threadData) != 0)
             {
